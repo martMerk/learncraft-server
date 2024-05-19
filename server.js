@@ -22,8 +22,11 @@ const io = require("socket.io")(http,{
     },
 });
 
-//connection to db
-mongoose.connect(process.env.DATABASE)
+//connection to db MongoDBAtlas:
+mongoose.connect(process.env.DATABASE,{
+    serverSelectionTimeoutMS: 30000 // Increase to 30 seconds
+})
+
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.log('MongoDB connection error:', err));
 

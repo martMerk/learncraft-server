@@ -38,7 +38,7 @@ mongoose.connect(process.env.DATABASE,{
 //     .then(()=>console.log("DB connected"))
 //     .catch((err)=>console.log("DB Connection Error =>",err));
     
-    // Some middlewares
+    // SOME MIDDLEWARES
     //any time we want to use a middleware, we need to use the function use()
     //from client to server the data will be transfered using .json format
     app.use(express.json({limit:"5mb"}));
@@ -49,7 +49,7 @@ mongoose.connect(process.env.DATABASE,{
     //with CORS enabled, your Express server will include the necessary HTTP headers to allow cross-origin
     // requests from the specified origins
     app.use(cors({origin: [process.env.CLIENT_URL],}));
-    
+    app.use(morgan('dev'));
     //POST endpoint
     //if the frontend http://localhost:3000 will see the data
     //in req.body

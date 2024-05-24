@@ -1,7 +1,6 @@
 const dialogflow = require("dialogflow");
 const config = require("../config/keys");
-const {struct} =require("pb-util"); //encode parameters to query input
-//to send events or queries to DialogFlow
+const { structProtoToJson } = require("pb-util");
 
 const sessionClient = new dialogflow.SessionsClient();
 const sessionPath = sessionClient.sessionPath(
@@ -25,25 +24,27 @@ const textquery = async (req, res) => {
 
   try {
     const responses = await sessionClient.detectIntent(request);
-    res.send(responses[0].queryResult);
+    const result = responses[0].queryResult;
+    res.send(result);
   } catch (error) {
     console.error('Error during detectIntent:', error);
     res.status(500).send(error.message);
   }
 };
 
-
-//Event query to DialogFlow
-
+// Event query to DialogFlow
 const eventquery = async (req, res) => {
   const languageCode = req.body.languageCode || config.dialogFlowSessionLanguageCode;
+
+  const parameters = req.body.parameters || {};
+  const parametersJson = structProtoToJson(parameters) || {};
 
   const request = {
     session: sessionPath,
     queryInput: {
       event: {
         name: req.body.eventName,
-        parameters: struct.encode(req.body.parameters) || {},
+        parameters: parametersJson,
         languageCode: languageCode,
       },
     },
@@ -51,12 +52,14 @@ const eventquery = async (req, res) => {
 
   try {
     const responses = await sessionClient.detectIntent(request);
-    res.send(responses[0].queryResult);
+    const result = responses[0].queryResult;
+    res.send(result);
   } catch (error) {
     console.error('Error during event query:', error);
     res.status(500).send(error.message);
   }
 };
+
 module.exports = {
   textquery,
   eventquery,

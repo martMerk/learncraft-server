@@ -51,6 +51,8 @@ const textquery = async (req, res) => {
 
   try {
     const responses = await sessionClient.detectIntent(request);
+    const intentName = responses[0].queryResult.intent.displayName;
+    console.log(intentName);
     const result = responses[0].queryResult;
     res.send(result);
   } catch (error) {
@@ -70,7 +72,7 @@ const eventquery = async (req, res) => {
     queryInput: {
       event: {
         name: req.body.event.name,
-        languageCode: req.body.event.languageCode,
+        languageCode: languageCode,
       },
     },
   };

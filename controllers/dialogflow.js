@@ -35,6 +35,8 @@ const structProtoToJson = (proto) => {
 };
 
 // Text query to DialogFlow
+//this webhook handles the "recommend posts" intent from dialogflow
+//and fetch the best posts from the database when the named intent is triggered.
 const textquery = async (req, res) => {
   const languageCode =
     req.body.languageCode || config.dialogFlowSessionLanguageCode;
@@ -52,65 +54,8 @@ const textquery = async (req, res) => {
   try {
     const responses = await sessionClient.detectIntent(request);
     const intentName = responses[0].queryResult.intent.displayName;
-    console.log(intentName);
-    const result = responses[0].queryResult;
-    res.send(result);
-  } catch (error) {
-    console.error("Error during detectIntent:", error);
-    res.status(500).send(error.message);
-  }
-};
-
-// Event query to DialogFlow
-const eventquery = async (req, res) => {
-  //console.log("requete",req.body);
-  const languageCode =
-    req.body.languageCode || config.dialogFlowSessionLanguageCode;
-
-  const request = {
-    session: sessionPath,
-    queryInput: {
-      event: {
-        name: req.body.event.name,
-        languageCode: languageCode,
-      },
-    },
-  };
-
-  try {
-    const responses = await sessionClient.detectIntent(request);
-    res.send(responses[0].queryResult);
-  } catch (error) {
-    console.error("Error during event query:", error);
-    res.status(500).send(error.message);
-  }
-};
-
-//webhook handles the "recommend posts" intent from dialogflow
-//and fetch the best posts from the database when this intent is triggered.
-const handleWebhook = async (req, res) => {
-  //console.log(req);
-  const languageCode =
-    req.body.languageCode || config.dialogFlowSessionLanguageCode;
-
-  const parameters = req.body.parameters || {};
-  const parametersJson = structProtoToJson(parameters) || {}; // Convert parameters to JSON
-  console.log("text",req.body.text );
-  const request = {
-    session: sessionPath,
-    queryInput: {
-      text: {
-        text: req.body.text,
-        languageCode: languageCode,
-      },
-    },
-  };
-
-  try {
-    const responses = await sessionClient.detectIntent(request);
-    const intentName = responses[0].queryResult.intent.displayName;
-    console.log(intentName);
-    if (intentName === "recommend posts") {
+    //console.log(intentName);
+      if (intentName === "recommend posts") {
       try {
         const bestPosts = await Post.find().sort({ likes: -1 }).limit(1).exec();
         if (bestPosts.length > 0) {
@@ -151,7 +96,11 @@ const handleWebhook = async (req, res) => {
           ],
         });
       }
-    } else {
+    } 
+    else if (intentName !== "recommend posts")
+     { const result = responses[0].queryResult;
+      res.send(result);}
+    else{
       res.json({
         fulfillmentMessages: [
           {
@@ -162,14 +111,122 @@ const handleWebhook = async (req, res) => {
         ],
       });
     }
+   
   } catch (error) {
     console.error("Error during detectIntent:", error);
     res.status(500).send(error.message);
   }
 };
 
+// Event query to DialogFlow
+const eventquery = async (req, res) => {
+  //console.log("requete",req.body);
+  const languageCode =
+    req.body.languageCode || config.dialogFlowSessionLanguageCode;
+
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      event: {
+        name: req.body.event.name,
+        languageCode: languageCode,
+      },
+    },
+  };
+
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    res.send(responses[0].queryResult);
+  } catch (error) {
+    console.error("Error during event query:", error);
+    res.status(500).send(error.message);
+  }
+};
+
+//webhook handles the "recommend posts" intent from dialogflow
+//and fetch the best posts from the database when this intent is triggered.
+// const handleWebhook = async (req, res) => {
+//   //console.log(req);
+//   const languageCode =
+//     req.body.languageCode || config.dialogFlowSessionLanguageCode;
+
+//   const parameters = req.body.parameters || {};
+//   const parametersJson = structProtoToJson(parameters) || {}; // Convert parameters to JSON
+//   console.log("text",req.body.text );
+//   const request = {
+//     session: sessionPath,
+//     queryInput: {
+//       text: {
+//         text: req.body.text,
+//         languageCode: languageCode,
+//       },
+//     },
+//   };
+
+//   try {
+//     const responses = await sessionClient.detectIntent(request);
+//     const intentName = responses[0].queryResult.intent.displayName;
+//     console.log(intentName);
+//     if (intentName === "recommend posts") {
+//       try {
+//         const bestPosts = await Post.find().sort({ likes: -1 }).limit(1).exec();
+//         if (bestPosts.length > 0) {
+//           const post = bestPosts[0];
+//           const responseText = `The best post is "${post.name}" with ${post.likes.length} likes. Here is the content: ${post.content}`;
+
+//           res.json({
+//             fulfillmentMessages: [
+//               {
+//                 text: {
+//                   text: [responseText],
+//                 },
+//               },
+//             ],
+//           });
+//         } else {
+//           res.json({
+//             fulfillmentMessages: [
+//               {
+//                 text: {
+//                   text: ["Sorry, I couldn't find any posts."],
+//                 },
+//               },
+//             ],
+//           });
+//         }
+//       } catch (error) {
+//         console.error("Error fetching the best post:", error);
+//         res.json({
+//           fulfillmentMessages: [
+//             {
+//               text: {
+//                 text: [
+//                   "Sorry, something went wrong while fetching the best post.",
+//                 ],
+//               },
+//             },
+//           ],
+//         });
+//       }
+//     } else {
+//       res.json({
+//         fulfillmentMessages: [
+//           {
+//             text: {
+//               text: ["Sorry, I didn't understand that request."],
+//             },
+//           },
+//         ],
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error during detectIntent:", error);
+//     res.status(500).send(error.message);
+//   }
+// };
+
 module.exports = {
   textquery,
   eventquery,
-  handleWebhook,
+ 
 };

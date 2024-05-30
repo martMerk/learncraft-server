@@ -117,14 +117,115 @@ const structProtoToJson = (proto) => {
 //   }
 // };
 
+// const textquery = async (req, res) => {
+//   const languageCode = req.body.languageCode || config.dialogFlowSessionLanguageCode;
+
+//   const queryText=req.body.text;
+//   const request = {
+//     session: sessionPath,
+//     queryInput: {
+//       text: {
+//         text: req.body.text,
+//         languageCode: languageCode,
+//       },
+//     },
+//   };
+
+//   try {
+//     const responses = await sessionClient.detectIntent(request);
+//     const queryResult = responses[0].queryResult;
+
+//     if (queryResult.intent && queryResult.intent.displayName) {
+//       const intentName = queryResult.intent.displayName;
+//       console.log("intent name",intentName);
+//       if (intentName === "recommend posts") {
+//         try {
+//           const bestPosts = await Post.find().sort({ likes: -1 }).limit(1).exec();
+          
+//           if (bestPosts.length > 0) {
+//             const post = bestPosts[0];
+
+//             const responseCard = {
+//               title: post.name,
+//               content: post.content,
+//               likes: post.likes.length,
+//               link: `${process.env.CLIENT_URL}/post/view/${post._id}`, // Corrected string interpolation
+//             };
+//             //console.log("responseCard",responseCard);
+//             res.json({
+//               fulfillmentMessages: [
+//                 {
+//                   card: responseCard,
+//                 },
+//               ],
+//             });
+//           } else {
+//             res.json({
+//               fulfillmentMessages: [
+//                 {
+//                   text: {
+//                     text: ["Sorry, I couldn't find any posts."],
+//                   },
+//                 },
+//               ],
+//             });
+//           }
+//         } catch (error) {
+//           console.error("Error fetching the best post:", error);
+//           res.json({
+//             fulfillmentMessages: [
+//               {
+//                 text: {
+//                   text: ["Sorry, something went wrong while fetching the best post."],
+//                 },
+//               },
+//             ],
+//           });
+//         }
+//       } else {
+//         res.json({
+//           fulfillmentMessages: [
+//             {
+//               text: {
+//                 text: [queryResult.fulfillmentText],
+//               },
+//             },
+//           ],
+//         });
+//       }
+//     } else {
+//       res.json({
+//         fulfillmentMessages: [
+//           {
+//             text: {
+//               text: ["Sorry, I didn't understand that request."],
+//             },
+//           },
+//         ],
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error during detectIntent:", error);
+//     res.status(500).send(error.message);
+//   }
+// };
+
+
+
+// Event query to DialogFlow
+
+
+
+
 const textquery = async (req, res) => {
   const languageCode = req.body.languageCode || config.dialogFlowSessionLanguageCode;
+  const queryText = req.body.text;
 
   const request = {
-    session: sessionPath,
+    session: sessionPath, // Assuming sessionPath is defined elsewhere
     queryInput: {
       text: {
-        text: req.body.text,
+        text: queryText,
         languageCode: languageCode,
       },
     },
@@ -134,84 +235,120 @@ const textquery = async (req, res) => {
     const responses = await sessionClient.detectIntent(request);
     const queryResult = responses[0].queryResult;
 
-    if (queryResult.intent && queryResult.intent.displayName) {
-      const intentName = queryResult.intent.displayName;
-      console.log("intent name",intentName);
-      if (intentName === "recommend posts") {
-        try {
-          const bestPosts = await Post.find().sort({ likes: -1 }).limit(1).exec();
-          
-          if (bestPosts.length > 0) {
-            const post = bestPosts[0];
+    // Check if the intent is "recommend posts"
+    if (queryResult.intent && queryResult.intent.displayName === "recommend posts") {
+      // Extract subjects from the query text
+      const detectedSubjects = extractSubjectsFromQuery(queryText);
 
-            const responseCard = {
-              title: post.name,
-              content: post.content,
-              likes: post.likes.length,
-              link: `${process.env.CLIENT_URL}/post/view/${post._id}`, // Corrected string interpolation
-            };
-            //console.log("responseCard",responseCard);
-            res.json({
-              fulfillmentMessages: [
-                {
-                  card: responseCard,
-                },
-              ],
-            });
-          } else {
-            res.json({
-              fulfillmentMessages: [
-                {
-                  text: {
-                    text: ["Sorry, I couldn't find any posts."],
-                  },
-                },
-              ],
-            });
+      // Ensure that at least one subject was detected
+      if (detectedSubjects.length === 0) {
+        console.error("No subjects detected in the query.");
+        return res.json({
+          fulfillmentMessages: [
+            {
+              text: {
+                text: ["Sorry, I didn't understand the subjects you are interested in."]
+              }
+            }
+          ]
+        });
+      }
+
+      try {
+        // Query the database using Mongoose to find the best post by any of the subjects
+        let bestPost = null;
+        for (const subject of detectedSubjects) {
+          const post = await Post.findOne({ subject: new RegExp(`^${subject}$`, 'i') }).sort({ likes: -1 }).exec();
+          
+          if (post) {
+            bestPost = post;
+            break; // Exit loop once a post is found for any subject
           }
-        } catch (error) {
-          console.error("Error fetching the best post:", error);
+        }
+
+        if (bestPost) {
+          const responseText = `The best post is "${bestPost.name}" with ${bestPost.likes.length} likes. Here is the content: ${bestPost.content}`;
           res.json({
             fulfillmentMessages: [
               {
                 text: {
-                  text: ["Sorry, something went wrong while fetching the best post."],
-                },
-              },
-            ],
+                  text: [`Here is the best post about ${bestPost.subject}: ${responseText}`]
+                }
+              }
+            ]
+          });
+        } else {
+          res.json({
+            fulfillmentMessages: [
+              {
+                text: {
+                  text: [`Sorry, I couldn't find any posts related to the subjects mentioned.`]
+                }
+              }
+            ]
           });
         }
-      } else {
-        res.json({
+      } catch (error) {
+        console.error("Error while querying database:", error);
+        res.status(500).json({
           fulfillmentMessages: [
             {
               text: {
-                text: [queryResult.fulfillmentText],
-              },
-            },
-          ],
+                text: ["Sorry, there was an issue while searching for posts."]
+              }
+            }
+          ]
         });
       }
     } else {
+      // Handle non-"recommend posts" intent
       res.json({
         fulfillmentMessages: [
           {
             text: {
-              text: ["Sorry, I didn't understand that request."],
-            },
-          },
-        ],
+              text: [queryResult.fulfillmentText]
+            }
+          }
+        ]
       });
     }
   } catch (error) {
+    // Handle errors from detectIntent or other async operations
     console.error("Error during detectIntent:", error);
     res.status(500).send(error.message);
   }
 };
 
+// Function to extract subjects from the query text
+function extractSubjectsFromQuery(queryText) {
+  const subjects = ["art", "maths", "geometry", "english", "french", "literature", "science"];
+  const detectedSubjects = [];
+
+  // Normalize query text and check against subjects
+  const normalizedQuery = queryText.toLowerCase();
+
+  for (const subject of subjects) {
+    if (normalizedQuery.includes(subject)) {
+      detectedSubjects.push(subject);
+    }
+  }
+
+  return detectedSubjects;
+}
 
 
-// Event query to DialogFlow
+
+
+
+
+
+
+
+
+
+
+
+
 const eventquery = async (req, res) => {
   //console.log("requete",req.body);
   const languageCode =

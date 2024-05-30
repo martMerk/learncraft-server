@@ -212,11 +212,8 @@ const structProtoToJson = (proto) => {
 
 
 
-// Event query to DialogFlow
 
-
-
-
+//TextQuery to Dialogflow: includes best post by
 const textquery = async (req, res) => {
   const languageCode = req.body.languageCode || config.dialogFlowSessionLanguageCode;
   const queryText = req.body.text;
@@ -271,9 +268,16 @@ const textquery = async (req, res) => {
           res.json({
             fulfillmentMessages: [
               {
-                text: {
-                  text: [`Here is the best post about ${bestPost.subject}: ${responseText}`]
-                }
+                // text: {
+                //   text: [`Here is the best post about ${bestPost.subject}: ${responseText}`]
+                // }
+                  card: {
+                    subject: bestPost.subject,
+                    title: bestPost.name,
+                    content: bestPost.content,
+                    likes: bestPost.likes.length,
+                    link: `${process.env.CLIENT_URL}/post/view/${bestPost._id}`,
+                  }
               }
             ]
           });
